@@ -15,12 +15,35 @@ def add_time_features(df: pd.DataFrame) -> pd.DataFrame:
     df['dow_cos']    = np.cos(2 * np.pi * df['day_of_week'] / 7)
 
     # Time-based flags
-    df['is_weekend']  = (df['day_of_week'] >= 5).astype(int)
-    df['is_rush_am']  = ((df['hour'] >= 7)  & (df['hour'] <= 9)  & (df['is_weekend'] == 0)).astype(int)
-    df['is_rush_pm']  = ((df['hour'] >= 16) & (df['hour'] <= 18) & (df['is_weekend'] == 0)).astype(int)
-    df['is_night']    = ((df['hour'] >= 22) | (df['hour'] <= 5)).astype(int)
-    df['is_morning']  = ((df['hour'] >= 6)  & (df['hour'] <= 11)).astype(int)
-    df['is_midday']   = ((df['hour'] >= 12) & (df['hour'] <= 15)).astype(int)
+    df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
+
+    # Learn rush hours FROM the data — top 3 peak hours on weekdays
+    weekday_hourly = (
+        df[df['is_weekend'] == 0]
+        .groupby('hour')['traffic_volume']
+        .mean()
+    )
+    # AM rush = top peak hours before noon
+    am_peaks = weekday_hourly[weekday_hourly.index < 12].nlargest(3).index.tolist()
+    # PM rush = top peak hours after noon
+    pm_peaks = weekday_hourly[weekday_hourly.index >= 12].nlargest(3).index.tolist()
+    # Night = bottom 4 hours by volume
+    night_hours = weekday_hourly.nsmallest(4).index.tolist()
+
+    print(f"   📊 Data-driven AM peak hours : {sorted(am_peaks)}")
+    print(f"   📊 Data-driven PM peak hours : {sorted(pm_peaks)}")
+    print(f"   📊 Data-driven night hours   : {sorted(night_hours)}")
+
+    df['is_rush_am'] = (
+        df['hour'].isin(am_peaks) & (df['is_weekend'] == 0)
+    ).astype(int)
+    df['is_rush_pm'] = (
+        df['hour'].isin(pm_peaks) & (df['is_weekend'] == 0)
+    ).astype(int)
+    df['is_night']   = df['hour'].isin(night_hours).astype(int)
+    df['is_morning'] = ((df['hour'] >= 6)  & (df['hour'] <= 11)).astype(int)
+    df['is_midday']  = ((df['hour'] >= 12) & (df['hour'] <= 15)).astype(int)
+
 
     # Season
     df['season'] = df['month'].map({

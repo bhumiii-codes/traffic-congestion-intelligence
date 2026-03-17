@@ -1,4 +1,4 @@
-# 🚦 Urban Traffic Congestion Intelligence System
+#  Urban Traffic Congestion Intelligence System
 
 > A machine learning-powered traffic intelligence platform that predicts congestion levels, identifies bottlenecks, and provides real-time insights through an interactive web dashboard.
 
@@ -10,7 +10,7 @@
 
 ---
 
-## 📌 Problem Statement
+##  Problem Statement
 
 Urban traffic congestion causes significant economic losses, increased pollution, and longer commute times. Traditional traffic systems only count vehicles — they don't predict or explain congestion.
 
@@ -22,7 +22,7 @@ This system solves that by:
 
 ---
 
-## 🎯 Objectives
+##  Objectives
 
 - Predict traffic congestion levels at different times of the day
 - Identify high-risk congestion periods and contributing factors
@@ -31,7 +31,7 @@ This system solves that by:
 
 ---
 
-## 📊 Dataset
+##  Dataset
 
 **Source:** [Metro Interstate Traffic Volume — Kaggle](https://www.kaggle.com/datasets/robikscube/metro-interstate-traffic-volume)
 
@@ -46,7 +46,7 @@ This system solves that by:
 
 ---
 
-## 🏗️ Project Structure
+##  Project Structure
 ```
 traffic-congestion-intelligence/
 │
@@ -82,7 +82,7 @@ traffic-congestion-intelligence/
 
 ---
 
-## ⚙️ ML Pipeline
+##  ML Pipeline
 ```
 Raw CSV Data
      ↓
@@ -115,7 +115,7 @@ Raw CSV Data
 
 ---
 
-## 🤖 Algorithms
+##  Algorithms
 
 ### Regression (Predict Exact Volume)
 
@@ -133,7 +133,7 @@ Same 4 algorithms applied as classifiers to predict:
 
 ---
 
-## 📈 Results
+##  Results
 
 ### Regression Performance
 
@@ -157,7 +157,7 @@ Same 4 algorithms applied as classifiers to predict:
 
 ---
 
-## 🔧 Feature Engineering Highlights
+##  Feature Engineering Highlights
 
 ### Cyclical Time Encoding
 ```python
@@ -183,20 +183,20 @@ rolling_mean_3h # Average of last 3 hours
 
 ---
 
-## 🌐 Dashboard Features
+##  Dashboard Features
 
 | Page | Features |
 |---|---|
-| 🏠 Overview | Stat cards, hourly line chart, congestion donut |
-| 📅 Heatmap | Hour×Day heatmap, risk score table |
-| 🌦️ Weather & Trends | Weather impact, temperature curve, year-over-year |
-| 🤖 Model Comparison | R², MAE, F1, accuracy charts for all models |
-| 🔮 Live Predictions | Real-time ML prediction, risk calculator, animated timeline |
-| 🚨 Smart Alerts | Top 5 high-risk windows, congestion risk bar chart |
+|  Overview | Stat cards, hourly line chart, congestion donut |
+|  Heatmap | Hour×Day heatmap, risk score table |
+|  Weather & Trends | Weather impact, temperature curve, year-over-year |
+|  Model Comparison | R², MAE, F1, accuracy charts for all models |
+|  Live Predictions | Real-time ML prediction, risk calculator, animated timeline |
+|  Smart Alerts | Top 5 high-risk windows, congestion risk bar chart |
 
 ---
 
-## 🚀 How to Run
+## How to Run
 
 ### 1. Clone the repository
 ```bash
@@ -238,7 +238,7 @@ http://127.0.0.1:5000
 
 ---
 
-## 📦 Requirements
+##  Requirements
 ```
 pandas
 numpy
@@ -253,7 +253,7 @@ flask
 
 ---
 
-## 💡 Key Insights
+##  Key Insights
 
 - **Temporal features dominate** — hour of day explains ~66% of model importance
 - **PM rush (17:00) is worst** — 81.6% of weekday records are High/Critical
@@ -264,7 +264,7 @@ flask
 
 ---
 
-## 👥 Team
+##  Team
 
 Built by Bhumika Singh, Kaveri Patle and Megan Sheel
 
