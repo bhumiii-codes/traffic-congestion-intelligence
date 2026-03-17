@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Traffic Congestion Intelligence System</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:       #060910;
+      --panel:    #0d1117;
+      --card:     #161b22;
+      --border:   #21262d;
+      --text:     #e6edf3;
+      --sub:      #8b949e;
+      --blue:     #58a6ff;
+      --green:    #3fb950;
+      --orange:   #f78166;
+      --yellow:   #e3b341;
+      --purple:   #bc8cff;
+      --red:      #ff6e6e;
+      --glow-b:   rgba(88,166,255,0.15);
+      --glow-g:   rgba(63,185,80,0.15);
+      --glow-o:   rgba(247,129,102,0.15);
+      --glow-p:   rgba(188,140,255,0.15);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 20%, rgba(88,166,255,0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(188,140,255,0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(63,185,80,0.03) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ── */
+    header {
+      position: relative;
+      z-index: 10;
+      padding: 28px 40px 20px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(13,17,23,0.8);
+      backdrop-filter: blur(20px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-left h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .header-left p {
+      color: var(--sub);
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(63,185,80,0.1);
+      border: 1px solid rgba(63,185,80,0.3);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      color: var(--green);
+    }
+
+    .live-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    /* ── Layout ── */
+    main {
+      position: relative;
+      z-index: 1;
+      padding: 30px 40px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* ── Stat Cards ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px 24px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: default;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      border-radius: 16px 16px 0 0;
+    }
+
+    .stat-card.blue::before  { background: linear-gradient(90deg, var(--blue), var(--purple)); }
+    .stat-card.green::before { background: linear-gradient(90deg, var(--green), #39d353); }
+    .stat-card.orange::before{ background: linear-gradient(90deg, var(--orange), var(--yellow)); }
+    .stat-card.purple::before{ background: linear-gradient(90deg, var(--purple), var(--blue)); }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--sub);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-card.blue  .stat-value { color: var(--blue); }
+    .stat-card.green .stat-value { color: var(--green); }
+    .stat-card.orange .stat-value{ color: var(--orange); }
+    .stat-card.purple .stat-value{ color: var(--purple); }
+
+    .stat-sub {
+      font-size: 0.78rem;
+      color: var(--sub);
+    }
+
+    .stat-icon {
+      position: absolute;
+      right: 20px;
+      top: 18px;
+      font-size: 2rem;
+      opacity: 0.15;
+    }
+
+    /* ── Section title ── */
+    .section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--sub);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Chart cards ── */
+    .chart-grid-2 {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .chart-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .chart-grid-equal {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      transition: box-shadow 0.2s;
+    }
+
+    .chart-card:hover {
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+
+    .chart-card h3 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .chart-card p {
+      font-size: 0.75rem;
+      color: var(--sub);
+      margin-bottom: 18px;
+    }
+
+    .chart-wrap {
+      position: relative;
+    }
+
+    /* ── Toggle buttons ── */
+    .toggle-group {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .toggle-btn {
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--sub);
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .toggle-btn.active {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+    }
+
+    /* ── Heatmap ── */
+    #heatmap-container {
+      overflow-x: auto;
+    }
+
+    .heatmap-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 3px;
+      font-size: 0.7rem;
+    }
+
+    .heatmap-table th {
+      color: var(--sub);
+      font-weight: 500;
+      padding: 2px 4px;
+      text-align: center;
+    }
+
+    .heatmap-table td {
+      width: 36px;
+      height: 28px;
+      border-radius: 4px;
+      text-align: center;
+      vertical-align: middle;
+      cursor: pointer;
+      transition: transform 0.15s, outline 0.15s;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: transparent;
+      position: relative;
+    }
+
+    .heatmap-table td:hover {
+      transform: scale(1.15);
+      color: #fff;
+      outline: 2px solid #fff;
+      z-index: 10;
+    }
+
+    /* ── Risk Score Calculator ── */
+    .risk-calculator {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      margin-bottom: 16px;
+    }
+
+    .risk-calculator h3 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .risk-calculator p {
+      font-size: 0.75rem;
+      color: var(--sub);
+      margin-bottom: 20px;
+    }
+
+    .calc-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .calc-field label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--sub);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .calc-field select,
+    .calc-field input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 0.82rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .calc-field select:focus,
+    .calc-field input:focus {
+      border-color: var(--blue);
+    }
+
+    .calc-btn {
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      padding: 10px 22px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.2s;
+      white-space: nowrap;
+    }
+
+    .calc-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
+    .risk-result {
+      margin-top: 20px;
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .risk-result-inner {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 24px;
+    }
+
+    .risk-score-circle {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 3px solid;
+    }
+
+    .risk-score-circle .score-num {
+      font-size: 1.6rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .risk-score-circle .score-label {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
+    .risk-details h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .risk-details p {
+      font-size: 0.82rem;
+      color: var(--sub);
+      margin: 0;
+    }
+
+    .risk-bar-wrap {
+      flex: 1;
+    }
+
+    .risk-bar-bg {
+      height: 10px;
+      background: var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .risk-bar-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* ── Risk table ── */
+    .risk-table-wrap {
+      overflow-x: auto;
+      margin-top: 8px;
+    }
+
+    .risk-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .risk-table th {
+      background: var(--bg);
+      color: var(--sub);
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 500;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .risk-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .risk-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .badge.Low      { background: rgba(63,185,80,0.15);  color: var(--green); }
+    .badge.Moderate { background: rgba(227,179,65,0.15); color: var(--yellow); }
+    .badge.High     { background: rgba(247,129,102,0.15);color: var(--orange); }
+    .badge.Critical { background: rgba(255,110,110,0.15);color: var(--red); }
+
+    /* ── Mini risk bar in table ── */
+    .mini-bar-bg {
+      height: 6px;
+      background: var(--border);
+      border-radius: 4px;
+      width: 100px;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
+
+    .mini-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+    }
+
+    /* ── Congestion donut ── */
+    .donut-wrap {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .donut-legend {
+      flex: 1;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-size: 0.82rem;
+    }
+
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-pct {
+      margin-left: auto;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ── Loading ── */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: var(--sub);
+      font-size: 0.85rem;
+      gap: 10px;
+    }
+
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="header-left">
+    <h1>🚦 Traffic Congestion Intelligence System</h1>
+    <p>Metro Interstate I-94 · Minneapolis–St. Paul · 2012–2018 · ML-Powered Analysis</p>
+  </div>
+  <div class="header-right">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      Live Dashboard
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── STAT CARDS ── -->
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-icon">📊</div>
+      <div class="stat-label">Total Records</div>
+      <div class="stat-value" id="stat-records">—</div>
+      <div class="stat-sub">hourly observations</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon">🚗</div>
+      <div class="stat-label">Avg Traffic Volume</div>
+      <div class="stat-value" id="stat-avg">—</div>
+      <div class="stat-sub">vehicles per hour</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-icon">⏰</div>
+      <div class="stat-label">Peak Hour</div>
+      <div class="stat-value" id="stat-peak">—</div>
+      <div class="stat-sub" id="stat-peak-day">busiest day: —</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-icon">🌦️</div>
+      <div class="stat-label">Worst Weather</div>
+      <div class="stat-value" id="stat-weather">—</div>
+      <div class="stat-sub" id="stat-range">data range: —</div>
+    </div>
+  </div>
+
+  <!-- ── ROW 1: Hourly + Donut ── -->
+  <div class="section-title">Traffic Patterns</div>
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <h3>⏰ Hourly Traffic Volume</h3>
+      <p>Average vehicles per hour across all years</p>
+      <div class="toggle-group">
+        <button class="toggle-btn active" onclick="setHourlyView('both',this)">Both</button>
+        <button class="toggle-btn" onclick="setHourlyView('weekday',this)">Weekday</button>
+        <button class="toggle-btn" onclick="setHourlyView('weekend',this)">Weekend</button>
+      </div>
+      <div class="chart-wrap"><canvas id="hourlyChart" height="110"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>🚦 Congestion Distribution</h3>
+      <p>Breakdown of all hourly records by congestion level</p>
+      <div class="donut-wrap">
+        <canvas id="donutChart" width="160" height="160" style="flex-shrink:0"></canvas>
+        <div class="donut-legend" id="donut-legend"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROW 2: Heatmap ── -->
+  <div class="section-title">Heatmap Analysis</div>
+  <div class="chart-card" style="margin-bottom:16px">
+    <h3>📅 Traffic Volume Heatmap — Hour × Day of Week</h3>
+    <p>Hover over any cell to see exact average volume · Darker red = higher congestion</p>
+    <div id="heatmap-container">
+      <div class="loading"><div class="spinner"></div> Loading heatmap...</div>
+    </div>
+  </div>
+
+  <!-- ── ROW 3: Weather + Monthly ── -->
+  <div class="section-title">Weather & Seasonal Trends</div>
+  <div class="chart-grid-equal">
+    <div class="chart-card">
+      <h3>🌦️ Weather Impact on Traffic Volume</h3>
+      <p>Average traffic volume grouped by weather condition</p>
+      <div class="chart-wrap"><canvas id="weatherChart" height="160"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>📆 Monthly Traffic Trends by Year</h3>
+      <p>Year-over-year monthly average volume comparison</p>
+      <div class="chart-wrap"><canvas id="monthlyChart" height="160"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ── ROW 4: Risk Calculator ── -->
+  <div class="section-title">Congestion Risk Scoring</div>
+  <div class="risk-calculator">
+    <h3>🎯 Live Congestion Risk Calculator</h3>
+    <p>Enter time and weather conditions to get a real-time congestion risk score</p>
+    <div class="calc-grid">
+      <div class="calc-field">
+        <label>Hour of Day</label>
+        <select id="calc-hour">
+          <option value="">Select hour</option>
+          <script>for(let h=0;h<24;h++) document.write(`<option value="${h}">${String(h).padStart(2,'0')}:00</option>`)</script>
+        </select>
+      </div>
+      <div class="calc-field">
+        <label>Day Type</label>
+        <select id="calc-daytype">
+          <option value="0">Weekday</option>
+          <option value="1">Weekend</option>
+        </select>
+      </div>
+      <div class="calc-field">
+        <label>Weather</label>
+        <select id="calc-weather">
+          <option value="0">Clear / Clouds</option>
+          <option value="1">Rain / Drizzle</option>
+          <option value="2">Snow / Fog / Storm</option>
+        </select>
+      </div>
+      <div class="calc-field">
+        <label>Holiday?</label>
+        <select id="calc-holiday">
+          <option value="0">No</option>
+          <option value="1">Yes</option>
+        </select>
+      </div>
+      <button class="calc-btn" onclick="calculateRisk()">Calculate Risk →</button>
+    </div>
+    <div class="risk-result" id="risk-result"></div>
+  </div>
+
+  <!-- ── ROW 5: Risk Table ── -->
+  <div class="chart-card" style="margin-bottom:16px">
+    <h3>📋 Congestion Risk Score Table — All Time Windows</h3>
+    <p>Risk scores for every hour of the day across weekday and weekend</p>
+    <div class="risk-table-wrap">
+      <div class="loading"><div class="spinner"></div> Loading risk scores...</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── Palette ──
+const C = {
+  blue:'#58a6ff', green:'#3fb950', orange:'#f78166',
+  yellow:'#e3b341', purple:'#bc8cff', red:'#ff6e6e',
+  bg:'#060910', panel:'#161b22', border:'#21262d',
+  text:'#e6edf3', sub:'#8b949e'
+};
+
+Chart.defaults.color = C.sub;
+Chart.defaults.borderColor = C.border;
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+
+let hourlyData = null;
+let hourlyChart = null;
+
+// ── Fetch all data ──
+async function init() {
+  const [summary, hourly, heatmap, weather, dist, risk, monthly] = await Promise.all([
+    fetch('/api/summary').then(r=>r.json()),
+    fetch('/api/hourly').then(r=>r.json()),
+    fetch('/api/heatmap').then(r=>r.json()),
+    fetch('/api/weather').then(r=>r.json()),
+    fetch('/api/congestion_dist').then(r=>r.json()),
+    fetch('/api/risk_scores').then(r=>r.json()),
+    fetch('/api/monthly').then(r=>r.json()),
+  ]);
+
+  renderSummary(summary);
+  renderHourly(hourly);
+  renderDonut(dist);
+  renderHeatmap(heatmap);
+  renderWeather(weather);
+  renderMonthly(monthly);
+  renderRiskTable(risk);
+}
+
+// ── Summary Cards ──
+function renderSummary(d) {
+  document.getElementById('stat-records').textContent = d.total_records.toLocaleString();
+  document.getElementById('stat-avg').textContent     = d.avg_volume.toLocaleString();
+  document.getElementById('stat-peak').textContent    = `${String(d.peak_hour).padStart(2,'0')}:00`;
+  document.getElementById('stat-peak-day').textContent= `busiest day: ${d.peak_day}`;
+  document.getElementById('stat-weather').textContent = d.worst_weather;
+  document.getElementById('stat-range').textContent   = `data range: ${d.date_range}`;
+}
+
+// ── Hourly Chart ──
+function renderHourly(data) {
+  hourlyData = data;
+  const labels = data.hours.map(h => `${String(h).padStart(2,'0')}:00`);
+  const ctx    = document.getElementById('hourlyChart').getContext('2d');
+
+  hourlyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Weekday',
+          data: data.weekday,
+          borderColor: C.blue,
+          backgroundColor: 'rgba(88,166,255,0.1)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+        },
+        {
+          label: 'Weekend',
+          data: data.weekend,
+          borderColor: C.purple,
+          backgroundColor: 'rgba(188,140,255,0.08)',
+          fill: true,
+          tension: 0.4,
+          borderDash: [5,3],
+          pointRadius: 3,
+          pointHoverRadius: 6,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: C.sub, boxWidth: 12 } },
+        tooltip: {
+          backgroundColor: C.panel,
+          borderColor: C.border,
+          borderWidth: 1,
+          titleColor: C.text,
+          bodyColor: C.sub,
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString()} veh/hr`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: C.border }, ticks: { maxRotation: 45, font: { size: 10 } } },
+        y: { grid: { color: C.border }, ticks: { callback: v => v.toLocaleString() } }
+      }
+    }
+  });
+}
+
+function setHourlyView(view, btn) {
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (!hourlyChart) return;
+  hourlyChart.data.datasets[0].hidden = view === 'weekend';
+  hourlyChart.data.datasets[1].hidden = view === 'weekday';
+  hourlyChart.update();
+}
+
+// ── Donut ──
+function renderDonut(data) {
+  const colors = [C.green, C.yellow, C.orange, C.red];
+  const ctx    = document.getElementById('donutChart').getContext('2d');
+
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: data.levels,
+      datasets: [{
+        data: data.pct,
+        backgroundColor: colors.map(c => c + '99'),
+        borderColor: colors,
+        borderWidth: 2,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      cutout: '65%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: C.panel,
+          borderColor: C.border,
+          borderWidth: 1,
+          callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toFixed(1)}%` }
+        }
+      }
+    }
+  });
+
+  const legend = document.getElementById('donut-legend');
+  data.levels.forEach((lvl, i) => {
+    legend.innerHTML += `
+      <div class="legend-item">
+        <div class="legend-dot" style="background:${colors[i]}"></div>
+        <span style="color:var(--sub)">${lvl}</span>
+        <span class="legend-pct" style="color:${colors[i]}">${data.pct[i]}%</span>
+      </div>`;
+  });
+}
+
+// ── Heatmap ──
+function renderHeatmap(data) {
+  const container = document.getElementById('heatmap-container');
+  const flat = data.data.flat();
+  const maxV = Math.max(...flat);
+  const minV = Math.min(...flat.filter(v => v > 0));
+
+  function getColor(val) {
+    const t = (val - minV) / (maxV - minV);
+    const r = Math.round(13  + t * (255 - 13));
+    const g = Math.round(17  + t * (50  - 17));
+    const b = Math.round(23  + t * (50  - 23));
+    const alpha = 0.3 + t * 0.7;
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  let html = '<table class="heatmap-table"><thead><tr><th>Day</th>';
+  for (let h = 0; h < 24; h++)
+    html += `<th>${String(h).padStart(2,'0')}</th>`;
+  html += '</tr></thead><tbody>';
+
+  data.days.forEach((day, di) => {
+    html += `<tr><th style="color:var(--sub);text-align:left;padding-right:8px">${day}</th>`;
+    data.hours.forEach((h, hi) => {
+      const val = data.data[di][hi];
+      const col = getColor(val);
+      html += `<td style="background:${col}" title="${day} ${String(h).padStart(2,'0')}:00 — ${Math.round(val).toLocaleString()} veh/hr">${Math.round(val/100)}k</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+// ── Weather Chart ──
+function renderWeather(data) {
+  const ctx = document.getElementById('weatherChart').getContext('2d');
+  const barColors = data.volume.map(v =>
+    v < data.overall * 0.85 ? C.red :
+    v < data.overall         ? C.yellow : C.green
+  );
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.weather,
+      datasets: [{
+        label: 'Avg Volume',
+        data: data.volume,
+        backgroundColor: barColors.map(c => c + 'aa'),
+        borderColor: barColors,
+        borderWidth: 1.5,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: C.panel,
+          borderColor: C.border,
+          borderWidth: 1,
+          callbacks: {
+            label: ctx => ` ${ctx.parsed.x.toLocaleString()} veh/hr`
+          }
+        },
+        annotation: {}
+      },
+      scales: {
+        x: { grid: { color: C.border }, ticks: { callback: v => v.toLocaleString() } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ── Monthly Chart ──
+function renderMonthly(data) {
+  const ctx    = document.getElementById('monthlyChart').getContext('2d');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const yearColors = [C.blue, C.purple, '#39d353', C.orange, C.yellow, C.green];
+
+  const datasets = Object.entries(data).map(([yr, vals], i) => ({
+    label: yr,
+    data: vals,
+    borderColor: yearColors[i % yearColors.length],
+    backgroundColor: 'transparent',
+    tension: 0.4,
+    pointRadius: 3,
+    pointHoverRadius: 6,
+    borderWidth: 2,
+  }));
+
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels: months, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: C.sub, boxWidth: 12, font: { size: 10 } } },
+        tooltip: {
+          backgroundColor: C.panel,
+          borderColor: C.border,
+          borderWidth: 1,
+        }
+      },
+      scales: {
+        x: { grid: { color: C.border } },
+        y: { grid: { color: C.border }, ticks: { callback: v => v.toLocaleString() } }
+      }
+    }
+  });
+}
+
+// ── Risk Table ──
+function renderRiskTable(data) {
+  const wrap = document.querySelector('.risk-table-wrap');
+  const wday = data.filter(r => !r.is_weekend);
+  const wend = data.filter(r => r.is_weekend);
+
+  function riskColor(score) {
+    if (score >= 70) return C.red;
+    if (score >= 45) return C.orange;
+    if (score >= 25) return C.yellow;
+    return C.green;
+  }
+
+  let html = '<table class="risk-table"><thead><tr>';
+  html += '<th>Hour</th><th>Weekday Score</th><th>Weekday Risk</th><th>Weekend Score</th><th>Weekend Risk</th>';
+  html += '</tr></thead><tbody>';
+
+  for (let h = 0; h < 24; h++) {
+    const wd = wday.find(r => r.hour === h);
+    const we = wend.find(r => r.hour === h);
+    html += `<tr>
+      <td><strong>${String(h).padStart(2,'0')}:00</strong></td>
+      <td>
+        <span style="color:${riskColor(wd.risk_score)};font-weight:700">${wd.risk_score}</span>
+        <span class="mini-bar-bg"><span class="mini-bar-fill" style="width:${wd.risk_score}%;background:${riskColor(wd.risk_score)};display:block;height:100%;border-radius:4px"></span></span>
+      </td>
+      <td><span class="badge ${wd.risk_label}">${wd.risk_label}</span></td>
+      <td>
+        <span style="color:${riskColor(we.risk_score)};font-weight:700">${we.risk_score}</span>
+        <span class="mini-bar-bg"><span class="mini-bar-fill" style="width:${we.risk_score}%;background:${riskColor(we.risk_score)};display:block;height:100%;border-radius:4px"></span></span>
+      </td>
+      <td><span class="badge ${we.risk_label}">${we.risk_label}</span></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+// ── Risk Calculator ──
+function calculateRisk() {
+  const hour      = parseInt(document.getElementById('calc-hour').value);
+  const isWeekend = parseInt(document.getElementById('calc-daytype').value);
+  const weather   = parseInt(document.getElementById('calc-weather').value);
+  const isHoliday = parseInt(document.getElementById('calc-holiday').value);
+
+  if (isNaN(hour)) { alert('Please select an hour!'); return; }
+
+  let score = 0;
+  if (!isWeekend && !isHoliday) {
+    if ([7,8].includes(hour))          score += 45;
+    else if ([9,16,17,18].includes(hour)) score += 40;
+    else if ([6,19].includes(hour))    score += 25;
+    else if (hour >= 10 && hour <= 15) score += 20;
+    else score += 5;
+  } else {
+    score += (hour >= 10 && hour <= 18) ? 20 : 5;
+  }
+  if (weather === 2) score += 30;
+  else if (weather === 1) score += 15;
+  else score += 5;
+  if (isHoliday) score = Math.max(0, score - 20);
+  score = Math.min(100, score);
+
+  const label = score >= 70 ? 'Critical' : score >= 45 ? 'High' : score >= 25 ? 'Moderate' : 'Low';
+  const color = score >= 70 ? C.red : score >= 45 ? C.orange : score >= 25 ? C.yellow : C.green;
+
+  const advice = {
+    Critical: '🚨 Expect severe delays. Avoid travel if possible or leave 45+ min early.',
+    High:     '⚠️ Significant congestion expected. Allow extra 20–30 minutes.',
+    Moderate: '🟡 Moderate traffic likely. Minor delays possible.',
+    Low:      '✅ Roads are generally clear. Normal travel times expected.',
+  };
+
+  const resultEl = document.getElementById('risk-result');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = `
+    <div class="risk-result-inner">
+      <div class="risk-score-circle" style="border-color:${color};color:${color}">
+        <span class="score-num">${score}</span>
+        <span class="score-label">/ 100</span>
+      </div>
+      <div class="risk-details">
+        <h4 style="color:${color}">${label} Risk</h4>
+        <p>${advice[label]}</p>
+      </div>
+      <div class="risk-bar-wrap">
+        <div style="font-size:0.72rem;color:var(--sub)">Risk Score</div>
+        <div class="risk-bar-bg">
+          <div class="risk-bar-fill" style="width:0%;background:${color}" id="risk-bar-anim"></div>
+        </div>
+        <div style="font-size:0.72rem;color:${color};margin-top:4px">${score}/100</div>
+      </div>
+    </div>`;
+
+  setTimeout(() => {
+    document.getElementById('risk-bar-anim').style.width = score + '%';
+  }, 50);
+}
+
+init();
+</script>
+</body>
+</html>
