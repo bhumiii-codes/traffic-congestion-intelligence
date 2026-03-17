@@ -1101,6 +1101,379 @@ function calculateRisk() {
 }
 
 init();
+
+// ── Alerts ──
+async function renderAlerts() {
+  const alerts = await fetch('/api/alerts').then(r=>r.json());
+  const section = document.createElement('div');
+  section.innerHTML = `
+    <div class="section-title" style="margin-top:16px">🚨 Smart Alerts</div>
+    <div class="chart-card" style="margin-bottom:16px" id="alerts-card">
+      <h3>🚨 High-Risk Congestion Alerts</h3>
+      <p>Top 5 most dangerous time windows based on historical data</p>
+      <div id="alerts-list"></div>
+    </div>`;
+  document.querySelector('main').appendChild(section);
+
+  const list = document.getElementById('alerts-list');
+  alerts.forEach((a,i) => {
+    const color = a.level === 'Critical' ? C.red : C.orange;
+    list.innerHTML += `
+      <div style="display:flex;align-items:center;gap:16px;padding:14px;
+                  background:var(--bg);border:1px solid ${color}33;
+                  border-radius:10px;margin-bottom:10px;
+                  animation:fadeIn 0.4s ease ${i*0.1}s both">
+        <div style="font-size:1.8rem;min-width:48px;text-align:center">
+          ${a.level==='Critical'?'🔴':'🟠'}
+        </div>
+        <div style="flex:1">
+          <div style="font-weight:700;color:${color};font-size:0.95rem">
+            ${String(a.hour).padStart(2,'0')}:00 — ${a.level} Risk
+          </div>
+          <div style="color:var(--sub);font-size:0.8rem;margin-top:3px">
+            ${a.message}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:1.4rem;font-weight:700;color:${color}">${a.pct}%</div>
+          <div style="font-size:0.7rem;color:var(--sub)">High/Critical</div>
+        </div>
+        <div style="width:120px">
+          <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${a.pct}%;background:${color};border-radius:4px;
+                        transition:width 1s ease"></div>
+          </div>
+        </div>
+      </div>`;
+  });
+}
+
+// ── Model Comparison ──
+async function renderModelComparison() {
+  const metrics = await fetch('/api/model_metrics').then(r=>r.json());
+  const section = document.createElement('div');
+  section.innerHTML = `
+    <div class="section-title" style="margin-top:16px">🤖 Model Intelligence</div>
+    <div class="chart-grid-equal" id="model-section"></div>`;
+  document.querySelector('main').appendChild(section);
+
+  const grid = section.querySelector('#model-section');
+
+  // Model cards
+  const modelInfo = {
+    random_forest:     { name:'Random Forest',     icon:'🌲', color: C.green,  desc:'Ensemble of 100 decision trees. Best overall performance.' },
+    gradient_boosting: { name:'Gradient Boosting', icon:'⚡', color: C.yellow, desc:'Sequential boosting. Corrects previous tree errors.' },
+    xgboost:           { name:'XGBoost',           icon:'🚀', color: C.blue,   desc:'Optimized gradient boosting with regularization.' },
+  };
+
+  let cardsHtml = '<div class="chart-card" style="grid-column:1/-1"><h3>📊 Model Performance Comparison</h3><p>All models evaluated on held-out test set (15% of data)</p><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px">';
+
+  Object.entries(metrics).forEach(([key, m]) => {
+    const info  = modelInfo[key] || { name: key, icon:'🤖', color: C.sub, desc:'' };
+    const isBest= m.r2 === Math.max(...Object.values(metrics).map(x=>x.r2));
+    cardsHtml += `
+      <div style="background:var(--bg);border:1px solid ${isBest ? info.color : 'var(--border)'};
+                  border-radius:12px;padding:20px;position:relative;
+                  ${isBest ? `box-shadow:0 0 20px ${info.color}22` : ''}">
+        ${isBest ? `<div style="position:absolute;top:12px;right:12px;background:${info.color}22;
+                    color:${info.color};font-size:0.7rem;padding:3px 8px;border-radius:10px;
+                    font-weight:700">BEST MODEL</div>` : ''}
+        <div style="font-size:2rem;margin-bottom:8px">${info.icon}</div>
+        <div style="font-weight:700;font-size:1rem;color:${info.color};margin-bottom:4px">
+          ${info.name}
+        </div>
+        <div style="font-size:0.75rem;color:var(--sub);margin-bottom:16px">${info.desc}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="background:var(--panel);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:1.3rem;font-weight:700;color:${info.color}">${m.r2}</div>
+            <div style="font-size:0.7rem;color:var(--sub);margin-top:2px">R² Score</div>
+          </div>
+          <div style="background:var(--panel);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:1.3rem;font-weight:700;color:${info.color}">${m.mae}</div>
+            <div style="font-size:0.7rem;color:var(--sub);margin-top:2px">MAE (veh/hr)</div>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <div style="font-size:0.7rem;color:var(--sub);margin-bottom:4px">
+            Accuracy: ${(m.r2*100).toFixed(1)}%
+          </div>
+          <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${m.r2*100}%;background:${info.color};
+                        border-radius:4px;transition:width 1.2s ease"></div>
+          </div>
+        </div>
+      </div>`;
+  });
+
+  cardsHtml += '</div></div>';
+  grid.innerHTML = cardsHtml;
+}
+
+// ── Live ML Prediction ──
+function renderPredictionTool() {
+  const section = document.createElement('div');
+  section.innerHTML = `
+    <div class="section-title" style="margin-top:16px">🔮 Live ML Prediction</div>
+    <div class="risk-calculator" style="margin-bottom:16px">
+      <h3>🔮 Real-Time Traffic Volume Predictor</h3>
+      <p>Powered by Random Forest (R²=0.988) — enter conditions to get an ML prediction</p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px">
+        <div class="calc-field">
+          <label>Hour of Day</label>
+          <select id="pred-hour">
+            ${Array.from({length:24},(_,h)=>`<option value="${h}">${String(h).padStart(2,'0')}:00</option>`).join('')}
+          </select>
+        </div>
+        <div class="calc-field">
+          <label>Day of Week</label>
+          <select id="pred-dow">
+            <option value="0">Monday</option>
+            <option value="1">Tuesday</option>
+            <option value="2">Wednesday</option>
+            <option value="3">Thursday</option>
+            <option value="4">Friday</option>
+            <option value="5">Saturday</option>
+            <option value="6">Sunday</option>
+          </select>
+        </div>
+        <div class="calc-field">
+          <label>Month</label>
+          <select id="pred-month">
+            ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+              .map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}
+          </select>
+        </div>
+        <div class="calc-field">
+          <label>Temperature (°C)</label>
+          <input type="number" id="pred-temp" value="20" min="-30" max="45"/>
+        </div>
+        <div class="calc-field">
+          <label>Rainfall (mm)</label>
+          <input type="number" id="pred-rain" value="0" min="0" max="100"/>
+        </div>
+        <div class="calc-field">
+          <label>Snowfall (mm)</label>
+          <input type="number" id="pred-snow" value="0" min="0" max="50"/>
+        </div>
+        <div class="calc-field">
+          <label>Cloud Cover (%)</label>
+          <input type="number" id="pred-clouds" value="20" min="0" max="100"/>
+        </div>
+        <div class="calc-field">
+          <label>Holiday?</label>
+          <select id="pred-holiday">
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </div>
+      </div>
+      <button class="calc-btn" onclick="runPrediction()">🔮 Predict Traffic Volume →</button>
+      <div id="pred-result" style="display:none;margin-top:20px;animation:fadeIn 0.3s ease"></div>
+    </div>`;
+  document.querySelector('main').appendChild(section);
+}
+
+async function runPrediction() {
+  const btn = document.querySelector('[onclick="runPrediction()"]');
+  btn.textContent = '⏳ Predicting...';
+  btn.disabled = true;
+
+  const payload = {
+    hour:       parseInt(document.getElementById('pred-hour').value),
+    dow:        parseInt(document.getElementById('pred-dow').value),
+    month:      parseInt(document.getElementById('pred-month').value),
+    temp_c:     parseFloat(document.getElementById('pred-temp').value),
+    rain:       parseFloat(document.getElementById('pred-rain').value),
+    snow:       parseFloat(document.getElementById('pred-snow').value),
+    clouds:     parseFloat(document.getElementById('pred-clouds').value),
+    is_holiday: parseInt(document.getElementById('pred-holiday').value),
+    weather_enc: 1,
+  };
+
+  const res  = await fetch('/api/predict', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+
+  btn.textContent = '🔮 Predict Traffic Volume →';
+  btn.disabled = false;
+
+  const levelColors = {
+    Low: C.green, Moderate: C.yellow, High: C.orange, Critical: C.red
+  };
+  const color = levelColors[data.level] || C.blue;
+  const pct   = Math.min(100, (data.volume / 7280) * 100);
+
+  const advice = {
+    Low:      '✅ Roads clear — great time to travel!',
+    Moderate: '🟡 Light traffic — minor delays possible.',
+    High:     '🟠 Heavy traffic — allow extra 20–30 mins.',
+    Critical: '🔴 Severe congestion — avoid if possible!',
+  };
+
+  document.getElementById('pred-result').style.display = 'block';
+  document.getElementById('pred-result').innerHTML = `
+    <div style="background:var(--bg);border:1px solid ${color}44;border-radius:12px;padding:20px">
+      <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+        <div style="text-align:center;min-width:120px">
+          <div style="font-size:2.8rem;font-weight:800;color:${color};line-height:1">
+            ${data.volume.toLocaleString()}
+          </div>
+          <div style="font-size:0.75rem;color:var(--sub);margin-top:4px">vehicles / hour</div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <span style="font-size:1.1rem;font-weight:700;color:${color}">${data.level} Congestion</span>
+            <span style="background:${color}22;color:${color};padding:3px 10px;
+                         border-radius:10px;font-size:0.75rem;font-weight:600">
+              Model Confidence: ${data.confidence}%
+            </span>
+          </div>
+          <div style="font-size:0.85rem;color:var(--sub);margin-bottom:12px">
+            ${advice[data.level]}
+          </div>
+          <div style="font-size:0.72rem;color:var(--sub);margin-bottom:4px">
+            Volume vs Max Capacity
+          </div>
+          <div style="height:10px;background:var(--border);border-radius:6px;overflow:hidden">
+            <div id="pred-bar" style="height:100%;width:0%;background:${color};
+                           border-radius:6px;transition:width 1s ease"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;
+                      font-size:0.7rem;color:var(--sub);margin-top:4px">
+            <span>0</span><span>${data.volume.toLocaleString()} / 7,280 max</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  setTimeout(() => {
+    document.getElementById('pred-bar').style.width = pct + '%';
+  }, 100);
+}
+
+// ── Animated Timeline ──
+function renderTimeline() {
+  const section = document.createElement('div');
+  section.innerHTML = `
+    <div class="section-title" style="margin-top:16px">🎬 Traffic Animation</div>
+    <div class="chart-card" style="margin-bottom:28px">
+      <h3>🎬 Animated Traffic Timeline — Watch Rush Hour Build</h3>
+      <p>Press Play to animate hourly traffic across the week in real time</p>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <button class="calc-btn" id="play-btn" onclick="toggleAnimation()">▶ Play</button>
+        <div style="flex:1;background:var(--bg);border-radius:8px;overflow:hidden;height:8px">
+          <div id="timeline-progress" style="height:100%;width:0%;
+               background:linear-gradient(90deg,var(--blue),var(--purple));
+               transition:width 0.3s ease;border-radius:8px"></div>
+        </div>
+        <div id="timeline-label" style="color:var(--sub);font-size:0.82rem;
+             min-width:80px;text-align:right">00:00</div>
+      </div>
+      <canvas id="timelineChart" height="80"></canvas>
+    </div>`;
+  document.querySelector('main').appendChild(section);
+}
+
+let timelineChart = null;
+let animFrame    = null;
+let animHour     = 0;
+let animPlaying  = false;
+let timelineData = null;
+
+async function initTimeline() {
+  const data = await fetch('/api/hourly').then(r=>r.json());
+  timelineData = data;
+  const labels = data.hours.map(h => `${String(h).padStart(2,'0')}:00`);
+  const ctx    = document.getElementById('timelineChart').getContext('2d');
+
+  timelineChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Weekday',
+          data: new Array(24).fill(0),
+          backgroundColor: data.weekday.map(v => {
+            if (v > 5000) return C.red + 'cc';
+            if (v > 3500) return C.orange + 'cc';
+            if (v > 2000) return C.yellow + 'cc';
+            return C.green + 'cc';
+          }),
+          borderRadius: 4,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: C.panel,
+          borderColor: C.border,
+          borderWidth: 1,
+          callbacks: { label: ctx => ` ${ctx.parsed.y.toLocaleString()} veh/hr` }
+        }
+      },
+      scales: {
+        x: { grid: { color: C.border } },
+        y: {
+          grid: { color: C.border },
+          max: 7000,
+          ticks: { callback: v => v.toLocaleString() }
+        }
+      }
+    }
+  });
+}
+
+function toggleAnimation() {
+  if (animPlaying) {
+    animPlaying = false;
+    cancelAnimationFrame(animFrame);
+    document.getElementById('play-btn').textContent = '▶ Play';
+  } else {
+    animPlaying = true;
+    animHour    = 0;
+    document.getElementById('play-btn').textContent = '⏸ Pause';
+    animate();
+  }
+}
+
+function animate() {
+  if (!animPlaying) return;
+  if (animHour >= 24) {
+    animPlaying = false;
+    document.getElementById('play-btn').textContent = '▶ Replay';
+    return;
+  }
+
+  const newData = new Array(24).fill(0);
+  for (let i = 0; i <= animHour; i++) {
+    newData[i] = timelineData.weekday[i];
+  }
+  timelineChart.data.datasets[0].data = newData;
+  timelineChart.update('none');
+
+  document.getElementById('timeline-progress').style.width =
+    ((animHour / 23) * 100) + '%';
+  document.getElementById('timeline-label').textContent =
+    `${String(animHour).padStart(2,'0')}:00`;
+
+  animHour++;
+  animFrame = setTimeout(() => requestAnimationFrame(animate), 350);
+}
+
+// ── Run all wow features ──
+renderModelComparison();
+renderAlerts();
+renderPredictionTool();
+renderTimeline();
+setTimeout(initTimeline, 500);
+
 </script>
 </body>
 </html>

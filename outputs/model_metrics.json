@@ -1,0 +1,1 @@
+{"random_forest": {"r2": 0.988, "mae": 124.7}, "gradient_boosting": {"r2": 0.9801, "mae": 180.9}, "xgboost": {"r2": 0.9839, "mae": 163.6}}
