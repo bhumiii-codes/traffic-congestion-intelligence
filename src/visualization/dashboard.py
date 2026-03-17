@@ -172,25 +172,37 @@ def api_predict():
     except:
         return jsonify({'error': 'Model not found'}), 500
 
-    hour       = int(data.get('hour', 8))
-    dow        = int(data.get('dow', 0))
-    month      = int(data.get('month', 6))
-    temp_c     = float(data.get('temp_c', 20))
-    rain       = float(data.get('rain', 0))
-    snow       = float(data.get('snow', 0))
-    clouds     = float(data.get('clouds', 20))
-    is_holiday = int(data.get('is_holiday', 0))
-    weather_enc= int(data.get('weather_enc', 1))
+    hour        = int(data.get('hour', 8))
+    dow         = int(data.get('dow', 0))
+    month       = int(data.get('month', 6))
+    temp_c      = float(data.get('temp_c', 20))
+    rain        = float(data.get('rain', 0))
+    snow        = float(data.get('snow', 0))
+    clouds      = float(data.get('clouds', 20))
+    is_holiday  = int(data.get('is_holiday', 0))
+    weather_enc = int(data.get('weather_enc', 1))
 
-    is_weekend = 1 if dow >= 5 else 0
-    is_rush_am = 1 if (7 <= hour <= 9 and not is_weekend) else 0
-    is_rush_pm = 1 if (16 <= hour <= 18 and not is_weekend) else 0
-    is_night   = 1 if (hour >= 22 or hour <= 5) else 0
-    is_morning = 1 if (6 <= hour <= 11) else 0
-    is_midday  = 1 if (12 <= hour <= 15) else 0
-    bad_weather= 1 if weather_enc in [3,4,9] else 0
-    quarter    = (month - 1) // 3 + 1
-    season_enc = {12:0,1:0,2:0,3:1,4:1,5:1,6:2,7:2,8:2,9:3,10:3,11:3}.get(month, 0)
+    # Derived features
+    is_weekend  = 1 if dow >= 5 else 0
+    is_rush_am  = 1 if (7 <= hour <= 9 and not is_weekend) else 0
+    is_rush_pm  = 1 if (16 <= hour <= 18 and not is_weekend) else 0
+    is_night    = 1 if (hour >= 22 or hour <= 5) else 0
+    is_morning  = 1 if (6 <= hour <= 11) else 0
+    is_midday   = 1 if (12 <= hour <= 15) else 0
+    bad_weather = 1 if weather_enc in [3, 4, 9] else 0
+    quarter     = (month - 1) // 3 + 1
+    season_enc  = {12:0,1:0,2:0,3:1,4:1,5:1,6:2,7:2,8:2,9:3,10:3,11:3}.get(month, 0)
+
+    # Real lag values from actual dataset
+    df = get_data()
+    real_hour_avg = df.groupby('hour')['traffic_volume'].mean().to_dict()
+
+    lag_1h   = real_hour_avg.get((hour - 1) % 24, 3000)
+    lag_2h   = real_hour_avg.get((hour - 2) % 24, 3000)
+    lag_24h  = real_hour_avg.get(hour, 3000)
+    lag_168h = real_hour_avg.get(hour, 3000)
+    roll_3h  = sum(real_hour_avg.get((hour - i) % 24, 3000) for i in range(1, 4)) / 3
+    roll_24h = sum(real_hour_avg.get(i, 3000) for i in range(24)) / 24
 
     features = [
         hour, dow, month, quarter,
@@ -208,7 +220,7 @@ def api_predict():
         bad_weather,
         1 if (10 <= temp_c <= 25 and rain == 0 and snow == 0) else 0,
         weather_enc,
-        3000, 2800, 3100, 3050, 3000, 2950,
+        lag_1h, lag_2h, lag_24h, lag_168h, roll_3h, roll_24h,
     ]
 
     prediction = model.predict([features])[0]
@@ -220,8 +232,8 @@ def api_predict():
     else:                   level = 'Critical'
 
     return jsonify({
-        'volume':    round(prediction),
-        'level':     level,
+        'volume':     round(prediction),
+        'level':      level,
         'confidence': round(float(0.988 * 100), 1),
     })
 
