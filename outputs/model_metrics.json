@@ -1,1 +1,1 @@
-{"random_forest": {"r2": 0.988, "mae": 124.7}, "gradient_boosting": {"r2": 0.9801, "mae": 180.9}, "xgboost": {"r2": 0.9839, "mae": 163.6}}
+{"random_forest": {"r2": 0.988, "mae": 124.7, "f1": 0.9272, "accuracy": 0.9272, "precision": 0.9273, "recall": 0.9272}, "gradient_boosting": {"r2": 0.9801, "mae": 180.9, "f1": 0.9199, "accuracy": 0.92, "precision": 0.9199, "recall": 0.92}, "xgboost": {"r2": 0.9839, "mae": 163.6, "f1": 0.9218, "accuracy": 0.9218, "precision": 0.9219, "recall": 0.9218}}
